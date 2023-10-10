@@ -1,5 +1,4 @@
 
-2 / 2
 
 from sqlalchemy import Column, Integer, String , Boolean, ForeignKey , DateTime
 from database import Base
