@@ -1,31 +1,47 @@
 from fastapi import FastAPI, Depends, HTTPException, APIRouter
 from sqlalchemy.orm import Session
-
-import models
+from src.DB import models
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 from fastapi.responses import JSONResponse
-from getdb import get_db
 import logging
-router=APIRouter()
+
+router = APIRouter()
 app = FastAPI()
+from database import SessionLocal
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 
 class AddUser(BaseModel):
-    id: Optional[int]
-    username: Optional[str]
-    email: Optional[str]
-    user_code: Optional[str]
-    date_of_birth: Optional[datetime]
-    date_of_creation: Optional[datetime]
+    def __init__(self, id: Optional[int] = None, username: Optional[str] = None,
+                 email: Optional[str] = None, user_code: Optional[str] = None,
+                 date_of_birth: Optional[datetime] = None,
+                 date_of_creation: Optional[datetime] = None):
+        self.id = id
+        self.username = username
+        self.email = email
+        self.user_code = user_code
+        self.date_of_birth = date_of_birth
+        self.date_of_creation = date_of_creation
+
+
 @router.post("/users/")
 def create_user(info: AddUser, db: Session = Depends(get_db)):
     db_user = models.User(username=info.username, email=info.email, user_code=info.user_code,
-                           date_of_creation=info.date_of_creation, date_of_birth=info.date_of_birth)
+                          date_of_creation=info.date_of_creation, date_of_birth=info.date_of_birth)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
+
 
 @router.get("/users/{user_id}")
 def read_user(user_id: Optional[int] = None, db: Session = Depends(get_db)):
@@ -35,6 +51,7 @@ def read_user(user_id: Optional[int] = None, db: Session = Depends(get_db)):
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
+
 
 @router.delete("/users/")
 def delete_user_by_code(user_code: Optional[str] = None, db: Session = Depends(get_db)):
@@ -57,6 +74,8 @@ class UpdateUser(BaseModel):
     username: Optional[str]
     email: Optional[str]
     date_of_birth: Optional[datetime]
+
+
 @router.put("/users/")
 def update_user_by_code(user_code: str, update_data: UpdateUser, db: Session = Depends(get_db)):
     try:
@@ -78,5 +97,3 @@ def update_user_by_code(user_code: str, update_data: UpdateUser, db: Session = D
     except Exception as e:
         logging.exception("An error occurred during user update")
         return JSONResponse(status_code=500, content={"message": "Internal server error"})
-
-app.include_router(router, prefix="/api")
